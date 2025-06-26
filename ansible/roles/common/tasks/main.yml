@@ -1,0 +1,101 @@
+---
+# Common tasks for all servers
+- name: Install essential packages
+  package:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - vim
+      - unzip
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - python3
+      - python3-pip
+      - jq
+    state: present
+
+- name: Create devops user
+  user:
+    name: "{{ item.username }}"
+    groups: sudo
+    shell: /bin/bash
+    create_home: yes
+    home: "/home/{{ item.username }}"
+  loop: "{{ admin_users }}"
+
+- name: Add SSH keys for devops users
+  authorized_key:
+    user: "{{ item.username }}"
+    key: "{{ item.ssh_key }}"
+    state: present
+  loop: "{{ admin_users }}"
+  when: item.ssh_key is defined
+
+- name: Configure sudo without password for devops users
+  lineinfile:
+    path: /etc/sudoers.d/devops
+    line: "{{ item.username }} ALL=(ALL) NOPASSWD:ALL"
+    create: yes
+    validate: 'visudo -cf %s'
+  loop: "{{ admin_users }}"
+
+- name: Set timezone
+  timezone:
+    name: UTC
+
+- name: Configure NTP
+  package:
+    name: ntp
+    state: present
+
+- name: Start and enable NTP
+  systemd:
+    name: ntp
+    state: started
+    enabled: yes
+
+- name: Update system packages
+  package:
+    upgrade: dist
+  when: ansible_os_family == "Debian"
+
+- name: Install Python packages
+  pip:
+    name:
+      - docker
+      - docker-compose
+      - kubernetes
+      - requests
+    state: present
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/devops-toolkit
+    - /var/log/devops-toolkit
+    - /etc/devops-toolkit
+
+- name: Copy devops toolkit scripts
+  template:
+    src: "{{ item }}.j2"
+    dest: "/opt/devops-toolkit/{{ item }}"
+    mode: '0755'
+  loop:
+    - health-check.sh
+    - log-rotate.sh
+    - cleanup.sh
+
+- name: Setup log rotation
+  cron:
+    name: "DevOps Toolkit log rotation"
+    minute: "0"
+    hour: "2"
+    job: "/opt/devops-toolkit/log-rotate.sh" 

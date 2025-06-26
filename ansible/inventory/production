@@ -1,0 +1,55 @@
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/devops-toolkit-key
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[webservers]
+web01 ansible_host=10.0.1.10
+web02 ansible_host=10.0.1.11
+web03 ansible_host=10.0.1.12
+
+[databases]
+db01 ansible_host=10.0.2.10
+db02 ansible_host=10.0.2.11
+
+[kubernetes]
+k8s-master ansible_host=10.0.3.10
+k8s-worker01 ansible_host=10.0.3.11
+k8s-worker02 ansible_host=10.0.3.12
+k8s-worker03 ansible_host=10.0.3.13
+
+[monitoring]
+monitor01 ansible_host=10.0.4.10
+
+[loadbalancers]
+lb01 ansible_host=10.0.5.10
+lb02 ansible_host=10.0.5.11
+
+[masters]
+k8s-master
+
+[workers]
+k8s-worker01
+k8s-worker02
+k8s-worker03
+
+[webservers:vars]
+nginx_worker_processes=auto
+nginx_worker_connections=1024
+app_port=3000
+ssl_enabled=true
+
+[databases:vars]
+postgresql_version=15
+redis_maxmemory=512mb
+backup_schedule="0 2 * * *"
+
+[kubernetes:vars]
+kubernetes_version=1.28
+pod_network_cidr=10.244.0.0/16
+service_cidr=10.96.0.0/12
+
+[monitoring:vars]
+prometheus_retention=15d
+grafana_admin_password="{{ vault_grafana_password }}"
+alert_email=alerts@devops-toolkit.com 

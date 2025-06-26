@@ -1,0 +1,381 @@
+groups:
+  # Infrastructure Alerts
+  - name: infrastructure
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage detected on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+          
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 95% for more than 2 minutes on {{ $labels.instance }}"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% on {{ $labels.instance }}"
+          
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 95% on {{ $labels.instance }}"
+
+      # High Disk Usage
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) / node_filesystem_size_bytes{fstype!="tmpfs"} * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 85% on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          
+      - alert: CriticalDiskUsage
+        expr: (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) / node_filesystem_size_bytes{fstype!="tmpfs"} * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 95% on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+
+      # Node Down
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Node {{ $labels.instance }} is down"
+          description: "Node exporter on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Load Average
+      - alert: HighLoadAverage
+        expr: node_load15 > 0.8 * count by (instance) (node_cpu_seconds_total{mode="idle"})
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High load average on {{ $labels.instance }}"
+          description: "Load average is high on {{ $labels.instance }} (current value: {{ $value }})"
+
+  # Docker Container Alerts
+  - name: containers
+    rules:
+      # Container Down
+      - alert: ContainerDown
+        expr: absent(container_last_seen{name!=""})
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} is down"
+          description: "Container {{ $labels.name }} has been down for more than 1 minute"
+
+      # High Container CPU
+      - alert: ContainerHighCPU
+        expr: (rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} CPU usage is above 80%"
+
+      # High Container Memory
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High memory usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} memory usage is above 85%"
+
+      # Container Restart
+      - alert: ContainerRestarted
+        expr: increase(container_start_time_seconds{name!=""}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} has restarted"
+          description: "Container {{ $labels.name }} has restarted {{ $value }} times in the last 5 minutes"
+
+  # Application Alerts
+  - name: application
+    rules:
+      # Application Down
+      - alert: ApplicationDown
+        expr: up{job="app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "Application is down"
+          description: "Application on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High HTTP Error Rate
+      - alert: HighHTTPErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High HTTP error rate"
+          description: "HTTP error rate is above 5% on {{ $labels.instance }}"
+
+      # Critical HTTP Error Rate
+      - alert: CriticalHTTPErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 15
+        for: 2m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "Critical HTTP error rate"
+          description: "HTTP error rate is above 15% on {{ $labels.instance }}"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is above 500ms on {{ $labels.instance }}"
+
+      # Low Request Rate
+      - alert: LowRequestRate
+        expr: rate(http_requests_total[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "Low request rate"
+          description: "Request rate is below 10 requests/second on {{ $labels.instance }}"
+
+  # Database Alerts
+  - name: database
+    rules:
+      # PostgreSQL Down
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Database Connections
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High database connections"
+          description: "Database connections are above 80% on {{ $labels.instance }}"
+
+      # Redis Down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Redis is down"
+          description: "Redis on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Redis Memory Usage
+      - alert: HighRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is above 85% on {{ $labels.instance }}"
+
+      # Database Slow Queries
+      - alert: DatabaseSlowQueries
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Database slow queries detected"
+          description: "Long running transactions detected on {{ $labels.instance }}"
+
+  # Kubernetes Alerts
+  - name: kubernetes
+    rules:
+      # Pod Crash Looping
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: kubernetes
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently"
+
+      # Pod Not Ready
+      - alert: PodNotReady
+        expr: kube_pod_status_ready{condition="false"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          category: kubernetes
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not ready"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been not ready for more than 5 minutes"
+
+      # Deployment Replica Mismatch
+      - alert: DeploymentReplicaMismatch
+        expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+        for: 5m
+        labels:
+          severity: warning
+          category: kubernetes
+        annotations:
+          summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
+          description: "Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }} has {{ $value }} available replicas, expected {{ $labels.spec_replicas }}"
+
+      # Node Not Ready
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: kubernetes
+        annotations:
+          summary: "Node {{ $labels.node }} is not ready"
+          description: "Node {{ $labels.node }} has been not ready for more than 1 minute"
+
+      # High Pod CPU Usage
+      - alert: HighPodCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod!=""}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: kubernetes
+        annotations:
+          summary: "High CPU usage in pod {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} CPU usage is above 80%"
+
+      # High Pod Memory Usage
+      - alert: HighPodMemoryUsage
+        expr: container_memory_usage_bytes{pod!=""} / container_spec_memory_limit_bytes{pod!=""} * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: kubernetes
+        annotations:
+          summary: "High memory usage in pod {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} memory usage is above 85%"
+
+  # Network Alerts
+  - name: network
+    rules:
+      # High Network Receive
+      - alert: HighNetworkReceive
+        expr: rate(node_network_receive_bytes_total{device!="lo"}[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network receive on {{ $labels.instance }}"
+          description: "Network interface {{ $labels.device }} on {{ $labels.instance }} is receiving more than 100MB/s"
+
+      # High Network Transmit
+      - alert: HighNetworkTransmit
+        expr: rate(node_network_transmit_bytes_total{device!="lo"}[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network transmit on {{ $labels.instance }}"
+          description: "Network interface {{ $labels.device }} on {{ $labels.instance }} is transmitting more than 100MB/s"
+
+      # Network Interface Down
+      - alert: NetworkInterfaceDown
+        expr: node_network_up{device!="lo"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "Network interface {{ $labels.device }} is down"
+          description: "Network interface {{ $labels.device }} on {{ $labels.instance }} has been down for more than 1 minute"
+
+  # SSL Certificate Alerts
+  - name: ssl
+    rules:
+      # SSL Certificate Expiring
+      - alert: SSLCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in less than 7 days"
+
+      # SSL Certificate Expired
+      - alert: SSLCertificateExpired
+        expr: probe_ssl_earliest_cert_expiry - time() < 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "SSL certificate has expired"
+          description: "SSL certificate for {{ $labels.instance }} has expired" 

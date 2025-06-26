@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-toolkit
+  labels:
+    name: devops-toolkit
+    environment: production
+    managed-by: devops-toolkit
+  annotations:
+    description: "DevOps Toolkit namespace for production workloads"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-toolkit-staging
+  labels:
+    name: devops-toolkit-staging
+    environment: staging
+    managed-by: devops-toolkit
+  annotations:
+    description: "DevOps Toolkit namespace for staging workloads"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    environment: production
+    managed-by: devops-toolkit
+  annotations:
+    description: "Monitoring stack namespace" 

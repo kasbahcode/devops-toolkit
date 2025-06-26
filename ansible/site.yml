@@ -1,0 +1,101 @@
+---
+# Main Ansible Playbook for DevOps Toolkit
+- name: DevOps Toolkit Infrastructure Setup
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Common variables
+    docker_compose_version: "2.21.0"
+    kubernetes_version: "1.28"
+    node_exporter_version: "1.6.1"
+    
+    # User configuration
+    admin_users:
+      - username: devops
+        ssh_key: "{{ lookup('env', 'DEVOPS_SSH_KEY') }}"
+    
+    # Security settings
+    ssh_port: 22
+    fail2ban_enabled: true
+    ufw_enabled: true
+    
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+    
+    - name: Update package cache (RedHat)
+      yum:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+
+  roles:
+    - common
+    - security
+    - docker
+    - kubernetes
+    - monitoring
+    - nginx
+    - ssl
+
+  post_tasks:
+    - name: Restart services
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      loop:
+        - docker
+        - nginx
+      ignore_errors: yes
+
+---
+# Webservers playbook
+- name: Configure Web Servers
+  hosts: webservers
+  become: yes
+  
+  roles:
+    - nginx
+    - ssl
+    - monitoring
+  
+  tasks:
+    - name: Deploy application configuration
+      template:
+        src: app.conf.j2
+        dest: /etc/nginx/sites-available/app
+        backup: yes
+      notify: reload nginx
+
+---
+# Database servers playbook  
+- name: Configure Database Servers
+  hosts: databases
+  become: yes
+  
+  roles:
+    - postgresql
+    - redis
+    - monitoring
+    - backup
+
+---
+# Kubernetes nodes playbook
+- name: Configure Kubernetes Nodes
+  hosts: kubernetes
+  become: yes
+  
+  roles:
+    - kubernetes
+    - monitoring
+    - security
+  
+  post_tasks:
+    - name: Join cluster (workers)
+      shell: "{{ hostvars['master']['join_command'] }}"
+      when: "'workers' in group_names" 

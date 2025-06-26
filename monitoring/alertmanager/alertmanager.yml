@@ -1,0 +1,236 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@devops-toolkit.com'
+  smtp_auth_username: 'alerts@devops-toolkit.com'
+  smtp_auth_password: 'your-email-password'
+  
+  # Slack configuration
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  
+  # PagerDuty configuration  
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  
+  routes:
+    # Critical alerts go to PagerDuty and Slack
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 5m
+      
+    # High severity alerts go to Slack and email
+    - match:
+        severity: high
+      receiver: 'high-alerts'
+      group_wait: 10s
+      repeat_interval: 15m
+      
+    # Warning alerts go to email only
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 1h
+      
+    # Infrastructure alerts
+    - match:
+        category: infrastructure
+      receiver: 'infrastructure-alerts'
+      
+    # Application alerts
+    - match:
+        category: application
+      receiver: 'application-alerts'
+      
+    # Database alerts
+    - match:
+        category: database
+      receiver: 'database-alerts'
+
+# Notification receivers
+receivers:
+  # Default receiver
+  - name: 'default'
+    email_configs:
+      - to: 'devops-team@devops-toolkit.com'
+        subject: '[DevOps Alert] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Details:
+          {{ range .Labels.SortedPairs }}  {{ .Name }}: {{ .Value }}
+          {{ end }}
+          {{ end }}
+        html: |
+          <h2>DevOps Toolkit Alert</h2>
+          {{ range .Alerts }}
+          <h3>{{ .Annotations.summary }}</h3>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
+          <p><strong>Service:</strong> {{ .Labels.service }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt }}</p>
+          {{ end }}
+
+  # Critical alerts
+  - name: 'critical-alerts'
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+        description: '{{ .GroupLabels.alertname }} - {{ .CommonAnnotations.summary }}'
+        severity: 'critical'
+        client: 'DevOps Toolkit'
+        client_url: 'http://alertmanager:9093'
+        details:
+          alertname: '{{ .GroupLabels.alertname }}'
+          message: '{{ .CommonAnnotations.description }}'
+          
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#critical-alerts'
+        username: 'AlertManager'
+        icon_emoji: ':fire:'
+        title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.service }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+        
+    email_configs:
+      - to: 'devops-team@devops-toolkit.com,management@devops-toolkit.com'
+        subject: '🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          CRITICAL ALERT TRIGGERED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+          
+          Please investigate immediately!
+
+  # High severity alerts
+  - name: 'high-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        username: 'AlertManager'
+        icon_emoji: ':warning:'
+        title: 'HIGH: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+        send_resolved: true
+        
+    email_configs:
+      - to: 'devops-team@devops-toolkit.com'
+        subject: '⚠️ HIGH ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          HIGH SEVERITY ALERT
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          {{ end }}
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'devops-team@devops-toolkit.com'
+        subject: '📧 Warning: {{ .GroupLabels.alertname }}'
+        body: |
+          Warning Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+
+  # Infrastructure alerts
+  - name: 'infrastructure-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#infrastructure'
+        username: 'AlertManager'
+        icon_emoji: ':construction:'
+        title: 'Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        
+    email_configs:
+      - to: 'infrastructure@devops-toolkit.com'
+        subject: '🏗️ Infrastructure Alert: {{ .GroupLabels.alertname }}'
+
+  # Application alerts
+  - name: 'application-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#applications'
+        username: 'AlertManager'
+        icon_emoji: ':computer:'
+        title: 'Application Alert: {{ .GroupLabels.alertname }}'
+        
+    email_configs:
+      - to: 'developers@devops-toolkit.com'
+        subject: '💻 Application Alert: {{ .GroupLabels.alertname }}'
+
+  # Database alerts
+  - name: 'database-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#database'
+        username: 'AlertManager'
+        icon_emoji: ':floppy_disk:'
+        title: 'Database Alert: {{ .GroupLabels.alertname }}'
+        
+    email_configs:
+      - to: 'dba@devops-toolkit.com'
+        subject: '🗄️ Database Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibition rules to prevent spam
+inhibit_rules:
+  # Inhibit warning and info alerts if critical alert is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+    
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'cluster', 'service']
+    
+  # Inhibit info alerts if warning alert is firing
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname', 'cluster', 'service'] 
