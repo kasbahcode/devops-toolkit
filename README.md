@@ -63,6 +63,28 @@ Your app runs at `http://localhost:3000` with monitoring at `http://localhost:30
 
 **🎯 First time user?** The `client-onboarding.sh` script will guide you through everything!
 
+---
+
+## 💰 **Ready to Make Money? We Are!**
+
+**Free Toolkit Gets You Started → Professional Services Scale Your Business**
+
+**🎯 Most Common Client Journey:**
+1. **Try Free** → Download and test the toolkit
+2. **Get Impressed** → Realize the professional quality  
+3. **Need Production** → Hire us for secure, compliant deployment
+4. **Scale Up** → Ongoing managed services and training
+
+**💼 High-Value Services:**
+- **Implementation** ($2K-50K) - Professional setup and deployment
+- **Training** ($5K-35K) - Team workshops and certification
+- **Managed Services** ($500-10K/month) - Ongoing platform management
+- **Enterprise** ($20K-100K+) - Custom compliance and security
+
+**📞 Book Your First Consultation:** [Free 30-minute call](https://calendly.com/kasbahcode/devops-consultation)
+
+---
+
 ## What These Scripts Actually Do
 
 - `setup.sh` - Installs Docker, Node.js, kubectl, Terraform, and friends (handles macOS/Linux differences)
@@ -149,11 +171,52 @@ What You're Actually Getting:
 └── 🔐 ssl/               # Certificate management (auto-renewal)
 ```
 
-## Getting Help
+## 💼 Professional Services & Support
 
-- Check the `docs/` folder first (I actually use these guides)
-- GitHub Issues for bugs (include error logs, please)
-- Email me at devops@kasbahcode.com for implementation help (I do consulting)
+### 🆓 **Free Toolkit + Community Support**
+- Complete DevOps automation (always free)
+- GitHub Issues for bugs
+- Community discussions and wiki
+- Comprehensive documentation
+
+### 💎 **Professional Services - Where We Make Money**
+
+#### 🚀 **Quick Start Packages**
+- **Express Setup** ($2K-5K) - 1-week professional implementation
+- **Enterprise Setup** ($5K-15K) - Multi-environment with training
+
+#### 🏢 **Enterprise Solutions** 
+- **Advanced Security** ($10K-25K) - SOC 2/ISO compliance
+- **Multi-Cloud Architecture** ($15K-50K) - AWS + Azure + GCP
+- **Custom Enterprise Solutions** ($20K-100K+) - Tailored implementations
+
+#### 🎓 **Training & Certification**
+- **Team Training** ($5K-15K) - 3-day intensive workshops  
+- **DevOps Bootcamp** ($15K-35K) - 2-week comprehensive program
+
+#### ☁️ **Managed Services**
+- **Starter Managed Hosting** ($500-1.5K/month) - Up to 5 applications
+- **Enterprise Managed Platform** ($2K-10K/month) - Unlimited applications
+
+### 📊 **Client ROI Results**
+| Company Size | Monthly Savings | Our Services | Annual ROI |
+|-------------|----------------|--------------|------------|
+| Startup | $2K-5K saved | $2K-5K investment | 300-500% |
+| Small Business | $5K-15K saved | $5K-15K investment | 400-600% |
+| Enterprise | $40K-100K+ saved | $20K-50K investment | 600-1000%+ |
+
+### 🎯 **The Business Model**
+**Free Toolkit** → **Attract Users** → **Professional Services** → **Revenue**
+
+- Toolkit builds trust and demonstrates value
+- Users need professional implementation for production
+- Enterprise clients require compliance and custom solutions
+- Ongoing managed services provide recurring revenue
+
+### 📞 **Start Making Money**
+- 📧 **Email**: devops@kasbahcode.com  
+- 📞 **Book Consultation**: [Schedule Free Call](https://calendly.com/kasbahcode/devops-consultation)
+- 💬 **Live Chat**: Available 9 AM - 6 PM EST
 
 **Pro tip:** Most "bugs" are actually Docker not having enough memory or ports being occupied. Check those first.
 
