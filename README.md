@@ -47,13 +47,21 @@ A complete DevOps automation platform that replaces multiple expensive SaaS tool
 ## Quick Start (Seriously, It's This Easy)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/devops-toolkit.git
+# 1. Clone the repository
+git clone https://github.com/kasbahcode/devops-toolkit.git
 cd devops-toolkit
+
+# 2. Run the guided onboarding (recommended for new users)
+./scripts/client-onboarding.sh
+
+# 3. Or run manual setup
 ./scripts/setup.sh
 ./scripts/init-project.sh my-app
 ```
 
 Your app runs at `http://localhost:3000` with monitoring at `http://localhost:3001`
+
+**🎯 First time user?** The `client-onboarding.sh` script will guide you through everything!
 
 ## What These Scripts Actually Do
 
@@ -145,7 +153,7 @@ What You're Actually Getting:
 
 - Check the `docs/` folder first (I actually use these guides)
 - GitHub Issues for bugs (include error logs, please)
-- Email me at YOUR_EMAIL@YOUR_DOMAIN.com for implementation help (I do consulting)
+- Email me at devops@kasbahcode.com for implementation help (I do consulting)
 
 **Pro tip:** Most "bugs" are actually Docker not having enough memory or ports being occupied. Check those first.
 

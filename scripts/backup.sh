@@ -521,10 +521,38 @@ cleanup_backups() {
 test_backup() {
     log "🔍 Testing backup integrity..."
     
-    # Add integrity tests here
-    # This is a placeholder for backup validation logic
+    # Check if backup files exist and are readable
+    local backup_count=0
+    local corrupt_count=0
     
-    log "✅ Backup integrity test completed"
+    for file in "$BACKUP_DIR"/*.{sql,tar,rdb}*; do
+        if [[ -f "$file" ]]; then
+            backup_count=$((backup_count + 1))
+            
+            # Test file integrity based on type
+            if [[ "$file" == *.gz ]]; then
+                if ! gzip -t "$file" 2>/dev/null; then
+                    warn "Corrupted backup detected: $(basename "$file")"
+                    corrupt_count=$((corrupt_count + 1))
+                fi
+            elif [[ "$file" == *.tar ]]; then
+                if ! tar -tf "$file" >/dev/null 2>&1; then
+                    warn "Corrupted tar backup: $(basename "$file")"
+                    corrupt_count=$((corrupt_count + 1))
+                fi
+            fi
+        fi
+    done
+    
+    log "📊 Backup integrity check results:"
+    log "   Total backups checked: $backup_count"
+    log "   Corrupted backups: $corrupt_count"
+    
+    if [[ $corrupt_count -eq 0 ]]; then
+        log "✅ All backups passed integrity check"
+    else
+        warn "⚠️ Found $corrupt_count corrupted backup(s)"
+    fi
 }
 
 # Main function

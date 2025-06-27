@@ -248,7 +248,11 @@ deploy_to_k8s() {
     
     # Wait for deployment to be ready
     log "⏳ Waiting for deployment to be ready..."
-    kubectl rollout status deployment/"$SERVICE_NAME" -n "$NAMESPACE" --timeout=300s
+    if ! kubectl rollout status deployment/"$SERVICE_NAME" -n "$NAMESPACE" --timeout=300s; then
+        error "Deployment failed! Rolling back..."
+        kubectl rollout undo deployment/"$SERVICE_NAME" -n "$NAMESPACE"
+        error "Rollback initiated. Check 'kubectl get pods -n $NAMESPACE' for status"
+    fi
     
     log "✅ Deployment completed successfully"
 }

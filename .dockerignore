@@ -1,0 +1,73 @@
+# DevOps Toolkit - Docker ignore file
+# Ignore version control
+.git
+.gitignore
+.gitattributes
+
+# Ignore documentation
+*.md
+docs/
+LICENSE
+
+# Ignore development files
+.env*
+.vscode/
+.idea/
+*.log
+logs/
+
+# Ignore OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore node modules (will be installed in container)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore test files
+test/
+tests/
+coverage/
+.nyc_output
+
+# Ignore build artifacts
+dist/
+build/
+*.tgz
+
+# Ignore CI/CD files
+ci-cd/
+.github/
+.travis.yml
+.circleci/
+
+# Ignore local development
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Ignore Terraform
+terraform/
+*.tfstate*
+.terraform/
+
+# Ignore Kubernetes
+kubernetes/
+
+# Ignore monitoring configs (they have their own containers)
+monitoring/
+
+# Ignore scripts
+scripts/
+
+# Ignore SSL certs
+ssl/
+
+# Ignore backups
+backups/ 

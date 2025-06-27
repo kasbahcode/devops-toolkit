@@ -154,9 +154,9 @@ jobs:
 
     - name: Run integration tests
       run: npm run test:integration
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
-        REDIS_URL: redis://localhost:6379
+              env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
 
   # Build Docker Image
   build:

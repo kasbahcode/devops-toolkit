@@ -160,7 +160,12 @@ variable "db_password" {
   description = "Database password"
   type        = string
   sensitive   = true
-  default     = "changeme123!"
+  default     = null
+  
+  validation {
+    condition = var.db_password == null || length(var.db_password) >= 12
+    error_message = "Database password must be at least 12 characters long."
+  }
 }
 
 # Redis Variables
@@ -180,7 +185,12 @@ variable "redis_auth_token" {
   description = "Redis auth token"
   type        = string
   sensitive   = true
-  default     = "changeme123!"
+  default     = null
+  
+  validation {
+    condition = var.redis_auth_token == null || length(var.redis_auth_token) >= 16
+    error_message = "Redis auth token must be at least 16 characters long."
+  }
 }
 
 # Tags

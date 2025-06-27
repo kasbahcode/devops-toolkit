@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# 🔒 SSL Certificate Generation and Management Script
-# Generates self-signed certificates or manages Let's Encrypt certificates
+# 🔐 SSL Certificate Generation Script
+# Handles both self-signed and Let's Encrypt certificates
 
 set -e
 
@@ -12,18 +12,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Configuration
-DOMAIN=""
-EMAIL=""
+# Default configuration
 CERT_TYPE="self-signed"
-CERT_DIR="./certs"
-KEY_SIZE=4096
-DAYS_VALID=365
-COUNTRY="US"
-STATE="CA"
-CITY="San Francisco"
-ORG="DevOps Toolkit"
-ORG_UNIT="IT Department"
+DOMAIN="localhost"
+EMAIL=""
+OUTPUT_DIR="./ssl"
+KEY_SIZE="2048"
+CERT_DAYS="365"
 
 # Logging functions
 log() {
@@ -39,37 +34,42 @@ error() {
     exit 1
 }
 
+info() {
+    echo -e "${BLUE}[INFO] $1${NC}"
+}
+
 # Usage function
 usage() {
     cat << EOF
-🔒 SSL Certificate Generation and Management Script
+🔐 SSL Certificate Generation Script
 
 Usage: $0 [OPTIONS]
 
+Certificate Types:
+    -t, --type TYPE         Certificate type (self-signed, letsencrypt) [default: self-signed]
+
 Options:
-    -d, --domain DOMAIN       Domain name for certificate
-    -e, --email EMAIL         Email for Let's Encrypt
-    -t, --type TYPE          Certificate type (self-signed, letsencrypt) [default: self-signed]
-    --cert-dir DIR           Certificate directory [default: ./certs]
-    --key-size SIZE          RSA key size [default: 4096]
-    --days DAYS              Certificate validity in days [default: 365]
-    --country CODE           Country code [default: US]
-    --state STATE            State/Province [default: CA]
-    --city CITY              City [default: San Francisco]
-    --org ORG                Organization [default: DevOps Toolkit]
-    --org-unit UNIT          Organizational Unit [default: IT Department]
-    -h, --help               Show this help message
+    -d, --domain DOMAIN     Domain name [default: localhost]
+    -e, --email EMAIL       Email for Let's Encrypt (required for letsencrypt)
+    -o, --output DIR        Output directory [default: ./ssl]
+    -k, --key-size SIZE     Key size in bits [default: 2048]
+    --days DAYS            Certificate validity in days [default: 365]
+    -h, --help             Show this help message
 
 Examples:
-    $0 -d app.example.com -t self-signed
-    $0 -d app.example.com -e admin@example.com -t letsencrypt
-    $0 -d "*.example.com" --key-size 2048 --days 730
+    $0 -t self-signed -d localhost
+    $0 -t letsencrypt -d example.com -e admin@example.com
+    $0 -d myapp.local --days 90
 EOF
 }
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -t|--type)
+            CERT_TYPE="$2"
+            shift 2
+            ;;
         -d|--domain)
             DOMAIN="$2"
             shift 2
@@ -78,40 +78,16 @@ while [[ $# -gt 0 ]]; do
             EMAIL="$2"
             shift 2
             ;;
-        -t|--type)
-            CERT_TYPE="$2"
+        -o|--output)
+            OUTPUT_DIR="$2"
             shift 2
             ;;
-        --cert-dir)
-            CERT_DIR="$2"
-            shift 2
-            ;;
-        --key-size)
+        -k|--key-size)
             KEY_SIZE="$2"
             shift 2
             ;;
         --days)
-            DAYS_VALID="$2"
-            shift 2
-            ;;
-        --country)
-            COUNTRY="$2"
-            shift 2
-            ;;
-        --state)
-            STATE="$2"
-            shift 2
-            ;;
-        --city)
-            CITY="$2"
-            shift 2
-            ;;
-        --org)
-            ORG="$2"
-            shift 2
-            ;;
-        --org-unit)
-            ORG_UNIT="$2"
+            CERT_DAYS="$2"
             shift 2
             ;;
         -h|--help)
@@ -124,256 +100,308 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required parameters
-if [[ -z "$DOMAIN" ]]; then
-    error "Domain name is required. Use -d or --domain option."
-fi
-
+# Validate inputs
 if [[ "$CERT_TYPE" == "letsencrypt" && -z "$EMAIL" ]]; then
-    error "Email is required for Let's Encrypt certificates. Use -e or --email option."
+    error "Email is required for Let's Encrypt certificates"
 fi
 
-# Create certificate directory
-mkdir -p "$CERT_DIR"
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
 
-# Check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
+# Check dependencies
+check_dependencies() {
+    case "$CERT_TYPE" in
+        self-signed)
+            if ! command -v openssl >/dev/null 2>&1; then
+                error "OpenSSL is required but not installed"
+            fi
+            ;;
+        letsencrypt)
+            if ! command -v certbot >/dev/null 2>&1; then
+                warn "Certbot not found. Installing..."
+                install_certbot
+            fi
+            ;;
+    esac
+}
+
+# Install certbot
+install_certbot() {
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update
+        sudo apt-get install -y certbot
+    elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y certbot
+    elif command -v brew >/dev/null 2>&1; then
+        brew install certbot
+    else
+        error "Cannot install certbot automatically. Please install manually."
+    fi
 }
 
 # Generate self-signed certificate
 generate_self_signed() {
-    log "🔐 Generating self-signed certificate for $DOMAIN"
+    log "🔒 Generating self-signed certificate for $DOMAIN..."
     
-    local cert_file="$CERT_DIR/$DOMAIN.crt"
-    local key_file="$CERT_DIR/$DOMAIN.key"
-    local csr_file="$CERT_DIR/$DOMAIN.csr"
+    local key_file="$OUTPUT_DIR/$DOMAIN.key"
+    local cert_file="$OUTPUT_DIR/$DOMAIN.crt"
+    local csr_file="$OUTPUT_DIR/$DOMAIN.csr"
     
     # Generate private key
-    log "Generating private key..."
+    log "📝 Generating private key..."
     openssl genrsa -out "$key_file" "$KEY_SIZE"
     
+    # Create certificate signing request config
+    cat > "$OUTPUT_DIR/cert.conf" << EOF
+[req]
+default_bits = $KEY_SIZE
+prompt = no
+default_md = sha256
+distinguished_name = dn
+req_extensions = v3_req
+
+[dn]
+C=US
+ST=State
+L=City
+O=DevOps Toolkit
+OU=IT Department
+CN=$DOMAIN
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = $DOMAIN
+DNS.2 = *.$DOMAIN
+DNS.3 = localhost
+IP.1 = 127.0.0.1
+IP.2 = ::1
+EOF
+
     # Generate certificate signing request
-    log "Generating certificate signing request..."
-    openssl req -new -key "$key_file" -out "$csr_file" -subj "/C=$COUNTRY/ST=$STATE/L=$CITY/O=$ORG/OU=$ORG_UNIT/CN=$DOMAIN"
+    log "📄 Creating certificate signing request..."
+    openssl req -new -key "$key_file" -out "$csr_file" -config "$OUTPUT_DIR/cert.conf"
     
-    # Generate self-signed certificate
-    log "Generating self-signed certificate..."
-    openssl x509 -req -in "$csr_file" -signkey "$key_file" -out "$cert_file" -days "$DAYS_VALID"
+    # Generate certificate
+    log "🏆 Generating certificate..."
+    openssl x509 -req -in "$csr_file" -signkey "$key_file" -out "$cert_file" \
+        -days "$CERT_DAYS" -extensions v3_req -extfile "$OUTPUT_DIR/cert.conf"
     
-    # Create combined certificate file
-    cat "$cert_file" "$key_file" > "$CERT_DIR/$DOMAIN.pem"
-    
-    # Set permissions
+    # Set proper permissions
     chmod 600 "$key_file"
     chmod 644 "$cert_file"
     
-    # Clean up CSR
-    rm "$csr_file"
+    # Clean up
+    rm -f "$csr_file" "$OUTPUT_DIR/cert.conf"
     
     log "✅ Self-signed certificate generated successfully!"
-    log "📁 Certificate: $cert_file"
     log "🔑 Private key: $key_file"
-    log "📋 Combined: $CERT_DIR/$DOMAIN.pem"
+    log "📜 Certificate: $cert_file"
+    log "⏰ Valid for: $CERT_DAYS days"
+    
+    # Display certificate info
+    info "Certificate details:"
+    openssl x509 -in "$cert_file" -text -noout | grep -A 2 "Subject:"
+    openssl x509 -in "$cert_file" -text -noout | grep -A 5 "X509v3 Subject Alternative Name:"
 }
 
 # Generate Let's Encrypt certificate
 generate_letsencrypt() {
-    log "🌐 Generating Let's Encrypt certificate for $DOMAIN"
+    log "🔒 Generating Let's Encrypt certificate for $DOMAIN..."
     
-    # Check if certbot is installed
-    if ! command_exists certbot; then
-        log "Installing certbot..."
-        if command_exists apt-get; then
-            sudo apt-get update
-            sudo apt-get install -y certbot
-        elif command_exists yum; then
-            sudo yum install -y certbot
-        elif command_exists brew; then
-            brew install certbot
-        else
-            error "Cannot install certbot. Please install it manually."
-        fi
+    # Check if domain is reachable
+    if ! ping -c 1 "$DOMAIN" >/dev/null 2>&1; then
+        warn "Domain $DOMAIN may not be reachable. Ensure DNS is configured properly."
     fi
     
-    # Generate certificate
-    log "Requesting certificate from Let's Encrypt..."
-    sudo certbot certonly \
+    # Generate certificate using certbot
+    if certbot certonly \
         --standalone \
-        --email "$EMAIL" \
+        --non-interactive \
         --agree-tos \
-        --no-eff-email \
-        --domains "$DOMAIN"
-    
-    # Copy certificates to our directory
-    local le_cert_dir="/etc/letsencrypt/live/$DOMAIN"
-    if [[ -d "$le_cert_dir" ]]; then
-        sudo cp "$le_cert_dir/fullchain.pem" "$CERT_DIR/$DOMAIN.crt"
-        sudo cp "$le_cert_dir/privkey.pem" "$CERT_DIR/$DOMAIN.key"
-        sudo cp "$le_cert_dir/fullchain.pem" "$CERT_DIR/$DOMAIN.pem"
-        cat "$CERT_DIR/$DOMAIN.key" >> "$CERT_DIR/$DOMAIN.pem"
-        
-        # Set ownership and permissions
-        sudo chown $USER:$USER "$CERT_DIR"/*
-        chmod 600 "$CERT_DIR/$DOMAIN.key"
-        chmod 644 "$CERT_DIR/$DOMAIN.crt"
+        --email "$EMAIL" \
+        --domains "$DOMAIN" \
+        --cert-path "$OUTPUT_DIR/$DOMAIN.crt" \
+        --key-path "$OUTPUT_DIR/$DOMAIN.key" \
+        --fullchain-path "$OUTPUT_DIR/$DOMAIN-fullchain.crt"; then
         
         log "✅ Let's Encrypt certificate generated successfully!"
-        log "📁 Certificate: $CERT_DIR/$DOMAIN.crt"
-        log "🔑 Private key: $CERT_DIR/$DOMAIN.key"
-        log "📋 Combined: $CERT_DIR/$DOMAIN.pem"
+        log "🔑 Private key: $OUTPUT_DIR/$DOMAIN.key"
+        log "📜 Certificate: $OUTPUT_DIR/$DOMAIN.crt"
+        log "🔗 Full chain: $OUTPUT_DIR/$DOMAIN-fullchain.crt"
+        log "⏰ Valid for: 90 days (auto-renewal recommended)"
+        
+        # Set up auto-renewal reminder
+        info "Setting up renewal reminder..."
+        create_renewal_script
     else
-        error "Let's Encrypt certificate generation failed"
+        error "Failed to generate Let's Encrypt certificate. Check domain and DNS configuration."
     fi
+}
+
+# Create certificate renewal script
+create_renewal_script() {
+    local renewal_script="$OUTPUT_DIR/renew-cert.sh"
+    
+    cat > "$renewal_script" << 'EOF'
+#!/bin/bash
+# SSL Certificate Renewal Script
+
+log() {
+    echo "[$(date)] $1"
+}
+
+log "Checking certificate renewal for DOMAIN_PLACEHOLDER..."
+
+if certbot renew --quiet --cert-name DOMAIN_PLACEHOLDER; then
+    log "Certificate renewed successfully"
+    
+    # Restart services if needed
+    if command -v docker-compose >/dev/null 2>&1; then
+        log "Restarting Docker services..."
+        docker-compose restart nginx || true
+    fi
+    
+    if command -v systemctl >/dev/null 2>&1; then
+        log "Restarting nginx..."
+        sudo systemctl reload nginx || true
+    fi
+else
+    log "Certificate renewal failed or not needed"
+fi
+EOF
+
+    # Replace placeholder with actual domain
+    sed -i.bak "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" "$renewal_script"
+    rm -f "${renewal_script}.bak"
+    
+    chmod +x "$renewal_script"
+    
+    log "📅 Renewal script created: $renewal_script"
+    info "Add to crontab for automatic renewal: 0 3 * * * $renewal_script"
+}
+
+# Generate DH parameters for better security
+generate_dhparam() {
+    local dhparam_file="$OUTPUT_DIR/dhparam.pem"
+    
+    if [[ ! -f "$dhparam_file" ]]; then
+        log "🔐 Generating DH parameters (this may take a while)..."
+        openssl dhparam -out "$dhparam_file" 2048
+        log "✅ DH parameters generated: $dhparam_file"
+    else
+        log "✅ DH parameters already exist: $dhparam_file"
+    fi
+}
+
+# Create nginx SSL configuration snippet
+create_nginx_config() {
+    local nginx_config="$OUTPUT_DIR/nginx-ssl.conf"
+    
+    cat > "$nginx_config" << EOF
+# SSL Configuration for Nginx
+# Include this in your server block
+
+ssl_certificate $OUTPUT_DIR/$DOMAIN.crt;
+ssl_certificate_key $OUTPUT_DIR/$DOMAIN.key;
+
+# SSL Security
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384;
+ssl_prefer_server_ciphers on;
+
+# DH Parameters
+ssl_dhparam $OUTPUT_DIR/dhparam.pem;
+
+# SSL Session
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 10m;
+
+# HSTS (optional - enable for production)
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+# SSL Stapling (for Let's Encrypt)
+ssl_stapling on;
+ssl_stapling_verify on;
+ssl_trusted_certificate $OUTPUT_DIR/$DOMAIN-fullchain.crt;
+resolver 8.8.8.8 8.8.4.4 valid=300s;
+resolver_timeout 5s;
+EOF
+
+    log "📋 Nginx SSL configuration created: $nginx_config"
 }
 
 # Verify certificate
 verify_certificate() {
-    log "🔍 Verifying certificate..."
+    local cert_file="$OUTPUT_DIR/$DOMAIN.crt"
+    local key_file="$OUTPUT_DIR/$DOMAIN.key"
     
-    local cert_file="$CERT_DIR/$DOMAIN.crt"
-    
-    if [[ -f "$cert_file" ]]; then
-        echo "Certificate Details:"
-        openssl x509 -in "$cert_file" -text -noout | grep -E "(Subject:|Issuer:|Not Before:|Not After :)"
+    if [[ -f "$cert_file" && -f "$key_file" ]]; then
+        log "🔍 Verifying certificate..."
         
-        echo ""
-        echo "Certificate fingerprint:"
-        openssl x509 -in "$cert_file" -fingerprint -noout
-        
-        # Check if certificate is valid
-        if openssl x509 -in "$cert_file" -checkend 86400 >/dev/null; then
-            log "✅ Certificate is valid for at least 24 hours"
+        # Check certificate validity
+        if openssl x509 -in "$cert_file" -noout -checkend 86400; then
+            log "✅ Certificate is valid and not expiring within 24 hours"
         else
-            warn "⚠️ Certificate expires within 24 hours"
+            warn "⚠️ Certificate expires within 24 hours!"
         fi
+        
+        # Verify key and certificate match
+        local cert_hash=$(openssl x509 -in "$cert_file" -noout -pubkey | openssl md5)
+        local key_hash=$(openssl rsa -in "$key_file" -noout -pubout | openssl md5)
+        
+        if [[ "$cert_hash" == "$key_hash" ]]; then
+            log "✅ Certificate and private key match"
+        else
+            error "❌ Certificate and private key do not match!"
+        fi
+        
+        # Display certificate expiration
+        local expiry=$(openssl x509 -in "$cert_file" -noout -enddate | cut -d= -f2)
+        log "📅 Certificate expires: $expiry"
     else
-        error "Certificate file not found: $cert_file"
+        error "Certificate files not found"
     fi
 }
 
-# Create Docker Compose configuration for HTTPS
-create_docker_config() {
-    log "🐳 Creating Docker Compose configuration..."
-    
-    cat > "$CERT_DIR/docker-compose.https.yml" << EOF
-version: '3.8'
-
-services:
-  nginx-ssl:
-    image: nginx:alpine
-    container_name: nginx-ssl
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./$DOMAIN.crt:/etc/ssl/certs/$DOMAIN.crt
-      - ./$DOMAIN.key:/etc/ssl/private/$DOMAIN.key
-    restart: unless-stopped
-    networks:
-      - app-network
-
-networks:
-  app-network:
-    external: true
-EOF
-
-    # Create Nginx configuration
-    cat > "$CERT_DIR/nginx.conf" << EOF
-events {
-    worker_connections 1024;
-}
-
-http {
-    upstream app {
-        server app:3000;
-    }
-
-    # Redirect HTTP to HTTPS
-    server {
-        listen 80;
-        server_name $DOMAIN;
-        return 301 https://\$server_name\$request_uri;
-    }
-
-    # HTTPS server
-    server {
-        listen 443 ssl http2;
-        server_name $DOMAIN;
-
-        ssl_certificate /etc/ssl/certs/$DOMAIN.crt;
-        ssl_certificate_key /etc/ssl/private/$DOMAIN.key;
-        
-        # SSL configuration
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-        ssl_prefer_server_ciphers off;
-        ssl_session_cache shared:SSL:10m;
-        ssl_session_timeout 10m;
-
-        location / {
-            proxy_pass http://app;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
-            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto \$scheme;
-        }
-    }
-}
-EOF
-    
-    log "✅ Docker configuration created: $CERT_DIR/docker-compose.https.yml"
-}
-
-# Create Kubernetes TLS secret
-create_k8s_secret() {
-    log "☸️ Creating Kubernetes TLS secret..."
-    
-    if command_exists kubectl; then
-        kubectl create secret tls "$DOMAIN-tls" \
-            --cert="$CERT_DIR/$DOMAIN.crt" \
-            --key="$CERT_DIR/$DOMAIN.key" \
-            --dry-run=client -o yaml > "$CERT_DIR/$DOMAIN-tls-secret.yaml"
-        
-        log "✅ Kubernetes TLS secret manifest created: $CERT_DIR/$DOMAIN-tls-secret.yaml"
-        log "Apply with: kubectl apply -f $CERT_DIR/$DOMAIN-tls-secret.yaml"
-    else
-        warn "kubectl not found, skipping Kubernetes secret creation"
-    fi
-}
-
-# Main function
+# Main execution
 main() {
-    log "🔒 Starting SSL certificate generation..."
-    log "Domain: $DOMAIN"
+    log "🔐 Starting SSL certificate generation..."
     log "Type: $CERT_TYPE"
-    log "Directory: $CERT_DIR"
+    log "Domain: $DOMAIN"
+    log "Output: $OUTPUT_DIR"
+    
+    check_dependencies
     
     case "$CERT_TYPE" in
         self-signed)
             generate_self_signed
+            generate_dhparam
             ;;
         letsencrypt)
             generate_letsencrypt
+            generate_dhparam
             ;;
         *)
             error "Unknown certificate type: $CERT_TYPE"
             ;;
     esac
     
+    create_nginx_config
     verify_certificate
-    create_docker_config
-    create_k8s_secret
     
-    log "🎉 SSL certificate setup completed successfully!"
+    log "🎉 SSL certificate generation completed!"
     log ""
     log "📋 Next steps:"
-    log "1. Use the certificates in your web server configuration"
-    log "2. For Docker: docker-compose -f $CERT_DIR/docker-compose.https.yml up -d"
-    log "3. For Kubernetes: kubectl apply -f $CERT_DIR/$DOMAIN-tls-secret.yaml"
-    log "4. Update your DNS to point to your server"
-    log "5. Test with: curl -k https://$DOMAIN"
+    log "1. Configure your web server to use the certificates"
+    log "2. Test SSL configuration with: openssl s_client -connect $DOMAIN:443"
+    log "3. For Let's Encrypt, set up automatic renewal"
+    log ""
+    log "📁 Generated files:"
+    ls -la "$OUTPUT_DIR"/*.{crt,key,pem,conf} 2>/dev/null || true
 }
 
 # Run main function

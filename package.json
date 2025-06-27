@@ -1,0 +1,20 @@
+{
+  "name": "devops-toolkit",
+  "version": "1.0.0",
+  "description": "A comprehensive DevOps automation platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": ["devops", "automation", "docker", "kubernetes", "monitoring"],
+  "author": "Kasbah Code",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+} 

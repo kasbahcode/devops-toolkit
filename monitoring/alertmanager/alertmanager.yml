@@ -1,11 +1,11 @@
 global:
-  smtp_smarthost: 'localhost:587'
-  smtp_from: 'alerts@devops-toolkit.com'
-  smtp_auth_username: 'alerts@devops-toolkit.com'
-  smtp_auth_password: 'your-email-password'
+  smtp_smarthost: '${SMTP_HOST:-localhost:587}'
+  smtp_from: '${SMTP_FROM:-alerts@yourdomain.com}'
+  smtp_auth_username: '${SMTP_USERNAME:-alerts@yourdomain.com}'
+  smtp_auth_password: '${SMTP_PASSWORD:-smtp_password_here}'
   
   # Slack configuration
-  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  slack_api_url: '${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK}'
   
   # PagerDuty configuration  
   pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
@@ -88,7 +88,7 @@ receivers:
   # Critical alerts
   - name: 'critical-alerts'
     pagerduty_configs:
-      - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+      - routing_key: '${PAGERDUTY_INTEGRATION_KEY:-your-pagerduty-key-here}'
         description: '{{ .GroupLabels.alertname }} - {{ .CommonAnnotations.summary }}'
         severity: 'critical'
         client: 'DevOps Toolkit'
